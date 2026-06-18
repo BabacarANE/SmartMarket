@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: smartmarket
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: smartmarket_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POSTGRES_USER: smartmarket
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: smartmarket_test
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      FRANCE_TRAVAIL_CLIENT_ID: dummy
+      FRANCE_TRAVAIL_CLIENT_SECRET: dummy
+      ADZUNA_APP_ID: dummy
+      ADZUNA_API_KEY: dummy
+      MLFLOW_TRACKING_URI: http://localhost:5000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - run: ruff check .
+      - run: black --check .
+      - run: pytest tests/ -v --cov=ml --cov=api --cov-report=xml --cov-fail-under=70
