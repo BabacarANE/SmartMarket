@@ -10,7 +10,7 @@ pgvector==0.2.5
 
 # ─── ETL & Data ──────────────────────────────────────────────────────
 pandas==2.2.2
-pyarrow==16.0.0
+pyarrow==15.0.2
 requests==2.32.2
 tenacity==8.3.0          # retry avec backoff exponentiel
 beautifulsoup4==4.12.3

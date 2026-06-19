@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Constantes ──────────────────────────────────────────────────────
 
-AUTH_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
+AUTH_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
 SCOPE = "api_offresdemploiv2 o2dsoffre"
 
@@ -62,36 +62,41 @@ class FranceTravailCollector(BaseCollector):
         wait=wait_exponential(multiplier=1, min=2, max=10),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+    )
     def _get_access_token(self) -> str:
         """Obtient un token OAuth2 via client_credentials."""
         resp = requests.post(
             AUTH_URL,
-            data={
-                "grant_type": "client_credentials",
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "scope": SCOPE,
-            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data=(
+                f"grant_type=client_credentials"
+                f"&client_id={self.client_id}"
+                f"&client_secret={self.client_secret}"
+                f"&scope=api_offresdemploiv2%20o2dsoffre"
+            ),
             timeout=10,
         )
         resp.raise_for_status()
         self._access_token = resp.json()["access_token"]
         self.logger.info("Token OAuth2 obtenu")
         return self._access_token
-
     # ─── Fetch ───────────────────────────────────────────────────────
 
     def fetch(self) -> list[dict[str, Any]]:
-        """Collecte les offres tech des 2 derniers jours depuis France Travail."""
         token = self._get_access_token()
-        headers = {"Authorization": f"Bearer {token}"}
-
-        date_min = (date.today() - timedelta(days=2)).strftime("%Y-%m-%dT00:00:00Z")
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        }
         all_records: list[dict[str, Any]] = []
 
         for rome_code in ROME_TECH_CODES:
             self.logger.info(f"Collecte ROME {rome_code}...")
-            records = self._fetch_paginated(headers, rome_code, date_min)
+            records = self._fetch_paginated(headers, rome_code, "")
             all_records.extend(records)
             self.logger.info(f"  → {len(records)} offres")
 
@@ -103,26 +108,24 @@ class FranceTravailCollector(BaseCollector):
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def _fetch_paginated(
-        self,
-        headers: dict[str, str],
-        rome_code: str,
-        date_min: str,
+            self,
+            headers: dict[str, str],
+            rome_code: str,
+            date_min: str,
     ) -> list[dict[str, Any]]:
-        """Pagine sur tous les résultats pour un code ROME donné."""
         records: list[dict[str, Any]] = []
         start = 0
 
         while True:
             params = {
                 "codeROME": rome_code,
-                "minCreationDate": date_min,
                 "range": f"{start}-{start + PAGE_SIZE - 1}",
-                "sort": "1",  # tri par date décroissante
+                "sort": "1",
             }
 
             resp = requests.get(SEARCH_URL, headers=headers, params=params, timeout=15)
 
-            if resp.status_code == 204:  # No content
+            if resp.status_code == 204:
                 break
             resp.raise_for_status()
 
@@ -137,7 +140,6 @@ class FranceTravailCollector(BaseCollector):
                 if mapped:
                     records.append(mapped)
 
-            # Vérification de pagination via le header Content-Range
             content_range = resp.headers.get("Content-Range", "")
             if content_range:
                 try:
@@ -180,24 +182,29 @@ class FranceTravailCollector(BaseCollector):
 
     @staticmethod
     def _parse_salaire(salaire_raw: dict) -> tuple[int | None, int | None]:
-        """
-        Extrait salaire_min et salaire_max depuis le dict salaire de l'API.
-        Convertit en €/an si nécessaire.
-        """
         if not salaire_raw:
             return None, None
 
         libelle = salaire_raw.get("libelle", "")
-        # Tentative de parsing du libellé "28000 - 35000 Euros par an"
-        try:
-            import re
-            numbers = re.findall(r"\d[\d\s]*", libelle)
-            numbers = [int(n.replace(" ", "")) for n in numbers if len(n.strip()) >= 4]
-            if len(numbers) >= 2:
-                return min(numbers), max(numbers)
-            elif len(numbers) == 1:
-                return numbers[0], numbers[0]
-        except Exception:
-            pass
+        if not libelle:
+            return None, None
 
-        return None, None
+        import re
+        # Extrait tous les nombres >= 4 chiffres
+        numbers = re.findall(r"\d+(?:\.\d+)?", libelle)
+        numbers = [float(n) for n in numbers if float(n) >= 1000]
+
+        if not numbers:
+            return None, None
+
+        sal_min = int(min(numbers))
+        sal_max = int(max(numbers))
+
+        # Détecte si c'est mensuel → annualise
+        if "mensuel" in libelle.lower() or "mois" in libelle.lower():
+            # Vérifie que c'est bien un salaire mensuel (< 15000)
+            if sal_min < 15000:
+                sal_min = sal_min * 12
+                sal_max = sal_max * 12
+
+        return sal_min, sal_max
