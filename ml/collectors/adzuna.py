@@ -90,7 +90,19 @@ class AdzunaCollector(BaseCollector):
                 "max_days_old": 3,
             }
 
-            resp = requests.get(BASE_URL, params=params, timeout=15)
+            resp = requests.get(
+                f"{BASE_URL}/{page}",  # ← page dans le chemin
+                params={
+                    "app_id": self.app_id,
+                    "app_key": self.api_key,
+                    "results_per_page": PAGE_SIZE,
+                    "what": keyword,
+                    "where": "france",
+                    "sort_by": "date",
+                    "max_days_old": 3,
+                },
+                timeout=15,
+            )
             resp.raise_for_status()
             data = resp.json()
 
