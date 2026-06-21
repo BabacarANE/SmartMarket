@@ -58,3 +58,13 @@ dbt/logs/
 # Notebooks
 .ipynb_checkpoints/
 *.ipynb
+# Environnements virtuels
+.venv/
+.venv-wsl/
+.venv-dbt/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+target/

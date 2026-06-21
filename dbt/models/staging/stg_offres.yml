@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_offres
+    description: "Offres d'emploi nettoyées et normalisées depuis raw"
+    columns:
+      - name: offre_id
+        description: "Identifiant unique"
+        data_tests:
+          - not_null
+          - unique
+      - name: source
+        description: "Source de l'offre"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['france_travail', 'adzuna', 'wtj']
+      - name: titre
+        data_tests:
+          - not_null
+      - name: type_contrat
+        data_tests:
+          - not_null

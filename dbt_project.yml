@@ -1,0 +1,25 @@
+name: smartmarket
+version: '1.0.0'
+config-version: 2
+
+profile: smartmarket
+
+model-paths: ["dbt/models"]
+analysis-paths: ["dbt/analyses"]
+test-paths: ["dbt/tests"]
+seed-paths: ["dbt/seeds"]
+macro-paths: ["dbt/macros"]
+snapshot-paths: ["dbt/snapshots"]
+
+clean-targets:
+  - "dbt/target"
+  - "dbt/dbt_packages"
+
+models:
+  smartmarket:
+    staging:
+      +materialized: view
+      +schema: clean
+    marts:
+      +materialized: table
+      +schema: analytics
