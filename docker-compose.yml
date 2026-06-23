@@ -98,7 +98,8 @@ services:
       bash -c "pip install psycopg2-binary -q &&
       mlflow server
       --backend-store-uri postgresql://smartmarket:x@postgres/smartmarket_db?options=-csearch_path=mlflow
-      --default-artifact-root /mlruns
+      --artifacts-destination /mlruns
+      --serve-artifacts
       --host 0.0.0.0
       --port 5000"
     volumes:
@@ -108,7 +109,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
+        
 volumes:
   postgres-data:
   airflow-logs:
