@@ -9,6 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 from sqlalchemy import create_engine, text
+import os
 
 # ─── Config ──────────────────────────────────────────────────────────
 
@@ -19,8 +20,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-API_URL = "http://localhost:8000"
-DB_CONN = "postgresql+pg8000://smartmarket:x@localhost:5433/smartmarket_db"
+API_URL = "http://fastapi:8000"
+DB_CONN = "postgresql+pg8000://smartmarket:x@postgres:5432/smartmarket_db"
 
 # ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -276,7 +277,7 @@ elif page == "📊 Monitoring ML":
     st.subheader("📈 Historique des expériences")
     try:
         import mlflow
-        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
         client = mlflow.MlflowClient()
         exp = client.get_experiment_by_name("smartmarket-salary-prediction")
         if exp:

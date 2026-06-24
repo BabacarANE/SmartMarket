@@ -109,6 +109,33 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      DB_CONN_STRING: "postgresql+pg8000://smartmarket:x@postgres:5432/smartmarket_db"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    environment:
+      DB_CONN_STRING: "postgresql+pg8000://smartmarket:x@postgres:5432/smartmarket_db"
+      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi
         
 volumes:
   postgres-data:
