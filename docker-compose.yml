@@ -132,6 +132,7 @@ services:
     environment:
       DB_CONN_STRING: "postgresql+pg8000://smartmarket:x@postgres:5432/smartmarket_db"
       MLFLOW_TRACKING_URI: "http://mlflow:5000"
+      API_URL: "http://fastapi:8000"
     ports:
       - "8501:8501"
     depends_on:
